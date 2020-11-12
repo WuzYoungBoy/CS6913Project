@@ -28,7 +28,7 @@ public class InvertedIndexConstruction {
         System.out.println();
 
 
-        TrecParser trecParser = new TrecParser(100000);
+        TrecParser trecParser = new TrecParser(bufferSize);
         long begin = System.currentTimeMillis();
         int fileNum = trecParser.parseAndSortPhase(sourceFilePath,outputPath);
         long end = System.currentTimeMillis();

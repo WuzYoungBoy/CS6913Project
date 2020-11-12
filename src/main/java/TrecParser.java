@@ -55,7 +55,7 @@ class TrecParser {
         StringBuilder stringBuilder = new StringBuilder();
         while ((len = countingInputStream.read(buffer)) != -1) {
             if(len < buffer.length) {break;}
-            if(pagePositions.size() > 100000) {break;}
+            //if(pagePositions.size() > 100000) {break;}
             for (int i = 0; i< buffer.length; i++) {
                 if (buffer[i] == lf) {
                     if (stringBuilder.toString().equals("</TEXT>")){pagePositions.add(pos + i);}
@@ -136,10 +136,10 @@ class TrecParser {
 
                             wordCount = 0;
 
-                            if(fileNum == 256) {
-                                pageTableBufferedWriter.close();
-                                return 256;
-                            }
+//                            if(fileNum == 256) {
+//                                pageTableBufferedWriter.close();
+//                                return 256;
+//                            }
                         }
                         invertedIndex[wordCount++] = new String[]{entry.getKey(), docNumStr, "" + entry.getValue().get()};
                     }
