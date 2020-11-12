@@ -25,8 +25,8 @@ class PostingMerger {
 
     private String mergeIntermediatePostings(BufferedReader[] brs, PriorityQueue<HeapLine> heap, String outputPath, int fileBufferNum, int mergedFileNum,  int pass) throws IOException {
         HeapLine hl;
-        String intermediatePostingPath = outputPath.concat("IP").concat(String.valueOf(mergedFileNum))
-                .concat("_").concat(String.valueOf(pass + 1));
+        String intermediatePostingPath = outputPath.concat("IP").concat("" + mergedFileNum)
+                .concat("_").concat("" + (pass + 1));
 
         BufferedWriter bw = new BufferedWriter(new FileWriter(intermediatePostingPath));
         for (int fileBufferIndex = 0; fileBufferIndex < fileBufferNum; fileBufferIndex++) {
@@ -69,7 +69,7 @@ class PostingMerger {
             int mergedFileNum = 0, fileIndex = 1, fileBufferNum = 0;
 
             String fileNamePrefix = outputPath.concat("IP");
-            String fileNameSuffix = "_".concat(String.valueOf(pass));
+            String fileNameSuffix = "_".concat( "" + pass);
             String intermediatePostingPath = null;
 
             Comparator<HeapLine> lexOrder = Comparator.comparing(hl -> hl.getWord());
@@ -85,7 +85,7 @@ class PostingMerger {
             PriorityQueue<HeapLine> heap = new PriorityQueue<>(maximumDegree, lexOrder.thenComparing(lenOrder).thenComparing(numOrder));
 
             while (fileIndex <= fileNum) {
-                File intermediatePosting = new File(fileNamePrefix.concat(String.valueOf(fileIndex)).concat(fileNameSuffix));
+                File intermediatePosting = new File(fileNamePrefix.concat( "" + fileIndex).concat(fileNameSuffix));
                 brs[fileBufferNum++] = new BufferedReader(new FileReader(intermediatePosting));
                 filesToDelete.add(intermediatePosting);
                 System.out.println(fileIndex);

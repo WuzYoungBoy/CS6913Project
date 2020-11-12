@@ -1,128 +1,114 @@
 import org.apache.commons.lang3.StringUtils;
+import com.google.common.primitives.Bytes;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 
 class BinaryFormatter {
 
-    private int VBEncodeBufferSize(int num) {
-        if (num == 0) return 1;
-        if(num < 0) {
-            System.out.println("Negative number. Please Check DocID or the order of DocID.");
-            System.exit(1);
-        }
-        int ones = 32 - Integer.numberOfLeadingZeros(num);
-        return (ones + 6) / 7;
+
+
+    private void updateBlockMetadata(int bufferNum, int blockIndex, int[] lastDocIds, int [] docIdSizes, int [] freqSizes, int [] docIdBuffer,
+                                     ByteBuffer docIdFreqByteBuffer, byte [] encodedDocIdGapByteBlock, byte [] encodedFreqByteBlock) {
+
+        lastDocIds[blockIndex] = docIdBuffer[bufferNum - 1];
+        docIdSizes[blockIndex] = encodedDocIdGapByteBlock.length;
+        freqSizes[blockIndex] = encodedFreqByteBlock.length;
+        docIdFreqByteBuffer.put(encodedDocIdGapByteBlock);
+        docIdFreqByteBuffer.put(encodedFreqByteBlock);
     }
 
-    private byte[] VBEncodeNumber(int num) {
-        int bufferSize = VBEncodeBufferSize(num);
-        byte [] vb = new byte[bufferSize];
-        int bufferIndex = 0;
-        while((num & 0xffffff80) != 0) {
-            vb[bufferIndex++] = (byte) ((num & 0x7f) | 0x80);
-            num >>>= 7;
-        }
-        vb[bufferIndex] = (byte) (num & 0x7f);
-        return vb;
-    }
-
-    private byte[] VBEncodeNumbers(int [] nums) {
-
-        ByteBuffer buffer = ByteBuffer.allocate(nums.length * (Integer.SIZE / Byte.SIZE));
-        for (int num : nums){ buffer.put(VBEncodeNumber(num));}
-        buffer.flip();
-        byte[] vb  = new byte[buffer.limit()];
-        buffer.get(vb);
-        return vb;
-    }
-
-    private byte[] VBEncodeNumberGaps(int [] nums) {
-        ByteBuffer buffer = ByteBuffer.allocate(nums.length * (Integer.SIZE / Byte.SIZE));
-
-        buffer.put(VBEncodeNumber(nums[0]));
-
-        int bufferIndex = 1;
-        while (bufferIndex < nums.length) {
-            //System.out.println(nums[bufferIndex]);
-            buffer.put(VBEncodeNumber(nums[bufferIndex] - nums[bufferIndex - 1]));
-            bufferIndex++;
-        }
-        buffer.flip();
-        byte[] vb  = new byte[buffer.limit()];
-        buffer.get(vb);
-        return vb;
-    }
-
-    List<Integer> VBDecode(byte [] byteStream) {
-        List<Integer> nums = new ArrayList<>();
-        int num = 0;
-        int offset = 0;
-        int payload;
-        for (int bufferIndex = 0; bufferIndex < byteStream.length; bufferIndex++) {
-            if(((payload = byteStream[bufferIndex] & 0xff) & 0x80) != 0) {
-                num |= (payload & 0x7f) << offset;
-                offset += 7;
-            } else {
-                nums.add((num | (payload << offset)));
-                num = 0;
-                offset = 0;
-            }
-        }
-        return nums;
-    }
-
-    void printByteArray(byte [] buffer) {
-        System.out.println("Buffer Len:" + buffer.length);
-        for (byte j : buffer) {
-            String s1 = String.format("%8s", Integer.toBinaryString(j & 0xFF)).replace(' ', '0');
-            System.out.println(s1);
-        }
-        System.out.println();
-    }
-    void printList(List<Integer> list){
-        System.out.println(Arrays.toString(list.toArray(new Integer[0])));
-    }
-
-    void printOriginalList (List<Integer> list) {
-        int total = list.get(0);
-        System.out.print(total);
-        if(list.size() == 1) {
-            System.out.println();
-            return;
-        }
-        for(int i = 1; i < list.size() ;i++) {
-            System.out.print(' ');
-            System.out.print((total += list.get(i)));
-        }
-        System.out.println();
-    }
-
-    private int [][] getDocIdsAndFreqs(String line) {
+    int [] getDocIdsAndFreqs(String line, BufferedOutputStream bos){
         String [] tupleStrs = StringUtils.split(line, ' ');
-        int [][] docIdFreqList = new int [2][tupleStrs.length];
+
+
+        int blockNum = (int)Math.ceil((tupleStrs.length / (double)128));
+        int [] docIdBuffer = new int [128];
+        int [] freqBuffer = new int [128];
+        int [] lastDocIds = new int [blockNum];
+        int [] docIdSizes = new int [blockNum];
+        int [] freqSizes = new int[blockNum];
+
+        int bufferNum = 0;
+        int blockIndex = 0;
+        int prevInt = 0;
+        int firstDotComma;
+
+        ByteBuffer metadataArrayByteBuffer = ByteBuffer.allocate(blockNum * 3 * (Integer.SIZE / Byte.SIZE));
+        ByteBuffer docIdFreqByteBuffer = ByteBuffer.allocate(tupleStrs.length * 2 * (Integer.SIZE / Byte.SIZE));
+
+
         for (int i = 0; i < tupleStrs.length; i++) {
-            int firstDotComma = tupleStrs[i].indexOf(',');
-            docIdFreqList[0][i] = Integer.parseInt(tupleStrs[i].substring(0,firstDotComma));
-            docIdFreqList[1][i] = Integer.parseInt(tupleStrs[i].substring(firstDotComma+1));
+
+            if (bufferNum == 128) {
+                updateBlockMetadata(bufferNum,blockIndex,lastDocIds, docIdSizes, freqSizes,docIdBuffer, docIdFreqByteBuffer,
+                        VarByte.VBEncodeNumberGaps(docIdBuffer,0,bufferNum, prevInt),VarByte.VBEncodeNumbers(freqBuffer));
+                prevInt = lastDocIds[blockIndex++];
+                bufferNum = 0;
+            }
+
+            firstDotComma = tupleStrs[i].indexOf(',');
+            docIdBuffer[bufferNum] = Integer.parseInt(tupleStrs[i].substring(0, firstDotComma));
+            freqBuffer[bufferNum] = Integer.parseInt(tupleStrs[i].substring(firstDotComma + 1));
+            bufferNum++;
         }
-        return docIdFreqList;
+        updateBlockMetadata(bufferNum,blockIndex++,lastDocIds, docIdSizes, freqSizes,docIdBuffer, docIdFreqByteBuffer,
+                VarByte.VBEncodeNumberGaps(docIdBuffer,0,bufferNum, prevInt),VarByte.VBEncodeNumbers(freqBuffer,0,bufferNum));
+
+
+        for (int i = 0; i < blockNum; i++) metadataArrayByteBuffer.putInt(lastDocIds[i]);
+        for (int i = 0; i < blockNum; i++) metadataArrayByteBuffer.putInt(docIdSizes[i]);
+        for (int i = 0; i < blockNum; i++) metadataArrayByteBuffer.putInt(freqSizes[i]);
+
+//        System.out.println("occurrence: " + tupleStrs.length);
+//        System.out.println("blockNum: " + blockIndex);
+//        System.out.println("lastDocIds: "  + Arrays.toString(lastDocIds));
+//        System.out.println("docIdSizes: " +Arrays.toString(docIdSizes));
+//        System.out.println("freqSizes: " +Arrays.toString(freqSizes));
+
+//        docIdFreqByteBuffer.flip();
+//        byte[] vb  = new byte[docIdFreqByteBuffer.limit()];
+//        docIdFreqByteBuffer.get(vb);
+//        byte [] docIdTemp1 = Arrays.copyOfRange(vb, 0, 170);
+//        byte [] docIdTemp2 = Arrays.copyOfRange(vb, 298, 298 + 164);
+//        byte [] freqTemp1 = Arrays.copyOfRange(vb, 170, 290);
+//        byte [] freqTemp2 = Arrays.copyOfRange(vb, 298 + 164, 298 + 164 + 128);
+//        docIdTemp1= Bytes.concat(docIdTemp1, docIdTemp2);
+//        VarByte.printOriginalList(VarByte.VBDecode(docIdTemp1));
+//        freqTemp1= Bytes.concat(freqTemp1, freqTemp2);
+//        VarByte.printList(VarByte.VBDecode(freqTemp1));
+
+
+        return new int [] {tupleStrs.length,  WriteToInvertedIndex(bos, metadataArrayByteBuffer, docIdFreqByteBuffer)};
+
     }
 
-    void WriteToLexicon(BufferedWriter lexbw, String wordOccurrence, String word, String start, String middle, String end) throws IOException {
-        lexbw.write(wordOccurrence);lexbw.write(' ');
+    void WriteToLexicon(BufferedWriter lexbw, String word, String wordOccurrence, String start, String end) throws IOException {
         lexbw.write(word);lexbw.write(' ');
+        lexbw.write(wordOccurrence);lexbw.write(' ');
         lexbw.write(start);lexbw.write(' ');
-        lexbw.write(middle);lexbw.write(' ');
         lexbw.write(end); lexbw.newLine();
     }
 
-    void WriteToInvertedIndex(BufferedOutputStream bos, byte [] encodedDocIdGapBytes, byte [] encodedFreqBytes) throws IOException{
-        bos.write(encodedDocIdGapBytes);
-        bos.write(encodedFreqBytes);
+    int WriteToInvertedIndex(BufferedOutputStream bos, ByteBuffer metadataArrayByteBuffer, ByteBuffer docIdFreqByteBuffer) {
+
+        metadataArrayByteBuffer.flip();
+        byte[] metadata  = new byte[metadataArrayByteBuffer.limit()];
+        metadataArrayByteBuffer.get(metadata);
+
+        docIdFreqByteBuffer.flip();
+        byte[] docIdFreq  = new byte[docIdFreqByteBuffer.limit()];
+        docIdFreqByteBuffer.get(docIdFreq);
+
+        try { bos.write(metadata); bos.write(docIdFreq);}
+        catch (IOException ioe) { ioe.printStackTrace();}
+
+
+        return metadata.length + docIdFreq.length;
     }
 
 
@@ -133,19 +119,16 @@ class BinaryFormatter {
             BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(outputPath.concat("InvertedIndex")));
 
             String line = br.readLine();
-            int start = 0, middle = 0, end = 0;
+            long start = 0L,  end = 0L;
             int counter = 0;
             System.out.println("Start reformatting");
             while((line = br.readLine()) != null) {
                 int firstSpace = line.indexOf(' ');
                 String word = line.substring(0,firstSpace);
-                int [][] docIdFreqList = getDocIdsAndFreqs(line.substring(firstSpace + 1));
-                byte [] encodedDocIdGapBytes = VBEncodeNumberGaps(docIdFreqList[0]);
-                byte [] encodedFreqBytes = VBEncodeNumbers(docIdFreqList[1]);
-                WriteToInvertedIndex(bos, encodedDocIdGapBytes, encodedFreqBytes);
-                middle = start + encodedDocIdGapBytes.length;
-                end = middle + encodedFreqBytes.length;
-                WriteToLexicon(lexbw, word, ""+docIdFreqList[0].length, ""+start, ""+middle, ""+end);
+                int [] occurrenceAndListSize = getDocIdsAndFreqs(line.substring(firstSpace + 1), bos);
+
+                end = start + occurrenceAndListSize[1];
+                WriteToLexicon(lexbw, word, ""+occurrenceAndListSize[0], ""+start,""+end);
                 start = end;
             }
             lexbw.close();

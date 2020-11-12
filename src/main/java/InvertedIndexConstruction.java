@@ -11,11 +11,11 @@ public class InvertedIndexConstruction {
         System.out.println();
 
         if(args.length != 3) {
-            System.out.println("Incorrect parameters. Please try again.");
+            System.out.println("Error: Incorrect parameters. Please try again.");
             System.exit(1);
         }
         if(!args[1].endsWith(File.separator)){
-            System.out.println("Output path must end with correct path separator. (Linux:/  Window:\\)");
+            System.out.println("Error: Output path must end with correct path separator. (Linux:/  Window:\\)");
             System.exit(1);
         }
 
@@ -41,9 +41,9 @@ public class InvertedIndexConstruction {
         String intermediatePostingPath = postingMerger.start(fileNum, outputPath);
         long end1 = System.currentTimeMillis();
         System.out.println("Total Merging Time: " + (end1 - begin1));
-        //System.out.println(intermediatePostingPath);
+        System.out.println(intermediatePostingPath);
 
-
+        String intermediatePostingPath2 = "C:\\Users\\wu689\\Desktop\\Web Search Engine\\HW2merge\\IP1_1";
         BinaryFormatter binaryFormatter = new BinaryFormatter();
         long begin2 = System.currentTimeMillis();
         binaryFormatter.generateInvertedIndex(intermediatePostingPath,outputPath);
