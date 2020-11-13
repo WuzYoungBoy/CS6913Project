@@ -35,11 +35,11 @@ class TrecParser {
         bw.close();
     }
 
-    private void writeToIntermediatePageTableASCII(BufferedWriter bwpt, String URL, String docLen, String startPosition, String endPosition) throws IOException {
-        bwpt.write(URL); bwpt.write(' ');
-        bwpt.write(docLen); bwpt.write(' ');
-        bwpt.write(startPosition); bwpt.write(' ');
-        bwpt.write(endPosition);bwpt.newLine();
+    private void writeToIntermediatePageTableASCII(BufferedWriter pageTableBufferedWriter, String URL, String docLen, String startPosition, String endPosition) throws IOException {
+        pageTableBufferedWriter.write(URL); pageTableBufferedWriter.write(' ');
+        pageTableBufferedWriter.write(docLen); pageTableBufferedWriter.write(' ');
+        pageTableBufferedWriter.write(startPosition); pageTableBufferedWriter.write(' ');
+        pageTableBufferedWriter.write(endPosition);pageTableBufferedWriter.newLine();
     }
 
     private ArrayList<Long> getPagePositions(String sourceFilePath) throws IOException{

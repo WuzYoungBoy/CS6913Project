@@ -18,6 +18,7 @@ class QueryProcessor {
 
 
     public QueryProcessor(String lexiconPath, String pageTablePath, String invertedIndexPath, String sourceFilePath) {
+        System.out.println("Loading lexicon and page table....");
         this.lexicon = loadLexicon(lexiconPath);
         System.out.println("Finish loading lexicon");
         this.pageTable = loadPageTable(pageTablePath);
@@ -156,7 +157,7 @@ class QueryProcessor {
                 if(restDocIds >= pageTable.size()) {break;}
                 int [] frequencies = new int [listPointers.length];
                 for (int i = 0; i < listPointers.length; i++) { frequencies[i] = getFreq(listPointers[i]); }
-                double BM25 = CalculateBM25(listPointers,frequencies, pageTable.get(restDocIds).getTermNum());
+                double BM25 = CalculateBM25(listPointers,frequencies, pageTable.get(restDocIds).getWordNumber());
                 topTenHeap.add(new double[]{firstDocId, BM25});
                 firstDocId++;
             }
@@ -195,7 +196,7 @@ class QueryProcessor {
                 minListPointers[i] = listPointers[poppedListedPointersIndex.get(i)];
                 frequencies[i] = getFreq(listPointers[poppedListedPointersIndex.get(i)]);
             }
-            double BM25 = CalculateBM25(minListPointers,frequencies, pageTable.get(minDocId).getTermNum());
+            double BM25 = CalculateBM25(minListPointers,frequencies, pageTable.get(minDocId).getWordNumber());
             topTenHeap.add(new double[]{minDocId, BM25});
 
             for(int i = 0; i < poppedListedPointersIndex.size(); i++) {
@@ -212,8 +213,7 @@ class QueryProcessor {
         double [] resultPageInfo;
         while ((resultPageInfo = topTenHeap.poll()) != null) {
             Page page = pageTable.get((int)resultPageInfo[0]);
-            ArrayList <Integer> positions =  new ArrayList<>();
-            HashSet<String> foundWords = new HashSet<>();
+            HashMap<String, Integer> foundWords = new HashMap<>();
             System.out.println("URL: ".concat(page.getURL()));
             System.out.println("BM25 Score: ".concat("" + resultPageInfo[1]));
 
@@ -225,11 +225,14 @@ class QueryProcessor {
             Matcher matcher = Pattern.compile(regex).matcher(document.toLowerCase());
 
             while(matcher.find()) {
-                positions.add(matcher.start());
-                foundWords.add(matcher.group());
+                foundWords.put(matcher.group(), matcher.start());
                 if(foundWords.size() == words.length) { break; }
             }
             System.out.println("Snippet:");
+
+            List <Integer> positions = new ArrayList<>(foundWords.values());
+            Collections.sort(positions);
+
             int firstPos = positions.get(0);
             int secondPos = words.length == 1? firstPos : positions.get(positions.size() - 1);
 

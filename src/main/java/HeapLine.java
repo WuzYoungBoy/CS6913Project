@@ -30,5 +30,4 @@ class HeapLine {
         return line.substring(firstSpace + 1);
     }
 
-
 }

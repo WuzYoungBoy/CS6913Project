@@ -1,29 +1,29 @@
 class Page {
     private String URL;
-    private int termNum;
+    private int wordNumber;
     private long startPosition;
     private long endPosition;
 
-    public Page(String URL, int termNum, long startPosition, long endPosition) {
+    Page(String URL, int wordNumber, long startPosition, long endPosition) {
         this.URL = URL;
-        this.termNum = termNum;
+        this.wordNumber = wordNumber;
         this.startPosition = startPosition;
         this.endPosition = endPosition;
     }
 
-    public String getURL() {
+    String getURL() {
         return URL;
     }
 
-    public int getTermNum() {
-        return termNum;
+    int getWordNumber() {
+        return wordNumber;
     }
 
-    public long getStartPosition() {
+    long getStartPosition() {
         return startPosition;
     }
 
-    public long getEndPosition() {
+    long getEndPosition() {
         return endPosition;
     }
 }
