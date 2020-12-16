@@ -10,36 +10,34 @@ class TrecParser {
         this.bufferSize = bufferSize;
     }
 
-    private void sortInvertedIndex(String[][] invertedIndex, int fromIndex, int toIndex, Comparator<String[]>lexOrder, Comparator<String[]> lenOrder, Comparator<String[]>numOrder) {
+    private void sortInvertedIndex(Posting [] invertedIndex, int fromIndex, int toIndex, Comparator<Posting>lexOrder, Comparator<Posting> lenOrder, Comparator<Posting>numOrder) {
         Arrays.parallelSort(invertedIndex, fromIndex, toIndex, lexOrder.thenComparing(lenOrder).thenComparing(numOrder));
     }
 
-    private void updateFreqMap(Map<String, MutableInt> freqMap, String word) {
-        MutableInt count = freqMap.get(word);
-        if (count == null) freqMap.put(word, new MutableInt());
-        else count.increment();
+    private void updatePositionMap(Map<String, ArrayList<String>> positionMap, String word, int position) {
+        ArrayList<String> positions = positionMap.get(word);
+        if (positions == null) positionMap.put(word, new ArrayList<String>(){{add(""+position);}} );
+        else positions.add(""+position);
     }
 
-
-    private void generateInitialIntermediatePostingsASCII(String[][] invertedIndex, int fileCount, int wordCount, String outputFilePath) throws Exception {
-        BufferedWriter bw = new BufferedWriter(new FileWriter(new File(outputFilePath.concat("IP".concat("" + fileCount).concat("_0")))));
+    private void generateInitialIntermediatePostingsASCII(Posting [] invertedIndex, int fileCount, int wordCount, String outputFilePath) throws Exception {
+        BufferedWriter bw = new BufferedWriter(new FileWriter(outputFilePath.concat("IP".concat("" + fileCount).concat("_0"))));
         for (int i = 0; i < wordCount; i++) {
-            bw.write(invertedIndex[i][0]);
+            bw.write(invertedIndex[i].getWord());
             bw.write(" ");
-            bw.write(invertedIndex[i][1]);
+            bw.write(invertedIndex[i].getDocNumStr());
             bw.write(",");
-            bw.write(invertedIndex[i][2]);
+            bw.write(String.join(",",invertedIndex[i].getPositions()));
             bw.newLine();
             invertedIndex[i] = null;
         }
         bw.close();
     }
 
-    private void writeToIntermediatePageTableASCII(BufferedWriter pageTableBufferedWriter, String URL, String docLen, String startPosition, String endPosition) throws IOException {
+    private void writeToIntermediatePageTableASCII(BufferedWriter pageTableBufferedWriter, String URL, String docNo, String docLen) throws IOException {
         pageTableBufferedWriter.write(URL); pageTableBufferedWriter.write(' ');
-        pageTableBufferedWriter.write(docLen); pageTableBufferedWriter.write(' ');
-        pageTableBufferedWriter.write(startPosition); pageTableBufferedWriter.write(' ');
-        pageTableBufferedWriter.write(endPosition);pageTableBufferedWriter.newLine();
+        pageTableBufferedWriter.write(docNo); pageTableBufferedWriter.write(' ');
+        pageTableBufferedWriter.write(docLen);pageTableBufferedWriter.newLine();
     }
 
     private ArrayList<Long> getPagePositions(String sourceFilePath) throws IOException{
@@ -82,19 +80,20 @@ class TrecParser {
 
 
     int parseAndSortPhase(String sourceFilePath, String outputPath) {
-        String[][] invertedIndex = new String[bufferSize][3];
-        Map<String, MutableInt> freqMap = new TreeMap<>();
-        Comparator<String[]> lexOrder = Comparator.comparing(row -> row[0]);
-        Comparator<String[]> lenOrder = Comparator.comparing(row-> row[1].length());
-        Comparator<String[]> numOrder = Comparator.comparing(row -> row[1]);
 
+        Posting [] invertedIndex = new Posting[bufferSize];
+
+        Map<String, ArrayList<String>> positionMap = new TreeMap<>();
+        Comparator<Posting> lexOrder = Comparator.comparing(posting -> posting.getWord());
+        Comparator<Posting> lenOrder = Comparator.comparing(posting-> posting.getDocNumStr().length());
+        Comparator<Posting> numOrder = Comparator.comparing(posting -> posting.getDocNumStr());
 
         int fileNum = 0, docNum = 0, wordCount = 0;
-        long pageStartPosition = 0;
-        String line;
+        long pageStartPosition = 0, totalDocLen = 0;
+        String line, docNo = "";
 
         try {
-            ArrayList<Long> pagePositions = getPagePositions(sourceFilePath);
+//            ArrayList<Long> pagePositions = getPagePositions(sourceFilePath);
             BufferedReader bufferedReader = new BufferedReader(new FileReader(sourceFilePath));
             BufferedWriter pageTableBufferedWriter = new BufferedWriter(new FileWriter(outputPath.concat("PageTable")));
 
@@ -102,6 +101,9 @@ class TrecParser {
             System.out.println("Parsing docs");
             long begin = System.currentTimeMillis();
             while ((line = bufferedReader.readLine()) != null) {
+                if(line.equals("<DOC>")) {
+                    docNo = StringUtils.split(bufferedReader.readLine(), "><")[1];
+                }
                 if (line.equals("<TEXT>")) {
                     String docNumStr = "" + docNum;
                     String URL = bufferedReader.readLine();
@@ -110,13 +112,15 @@ class TrecParser {
 
                     while (!(line = bufferedReader.readLine()).equals("</TEXT>")) {
                         String [] words = StringUtils.split(line, " \"?.,:()“”;!~'|#{}[]$‘’*-+%&—–_/");
-                        for (String word : words) {
-                            if(word.length() > 30) continue;
-                            docLen++;
-                            updateFreqMap(freqMap, word.toLowerCase());
+
+                        for(int i = 0; i < words.length; i++) {
+                            if(words[i].length() > 30) continue;
+                            updatePositionMap(positionMap, words[i].toLowerCase(), docLen + i);
                         }
+
+                        docLen+= words.length;
                     }
-                    for (Map.Entry<String, MutableInt> entry : freqMap.entrySet()) {
+                    for (Map.Entry<String, ArrayList<String>> entry : positionMap.entrySet()) {
 
                         if (wordCount >= bufferSize) {
                             long end = System.currentTimeMillis();
@@ -141,17 +145,23 @@ class TrecParser {
 //                                return 256;
 //                            }
                         }
-                        invertedIndex[wordCount++] = new String[]{entry.getKey(), docNumStr, "" + entry.getValue().get()};
+
+                        invertedIndex[wordCount++] = new Posting(entry.getKey(),docNumStr,entry.getValue());
                     }
 
-                    writeToIntermediatePageTableASCII(pageTableBufferedWriter, URL, "" + docLen, "" + pageStartPosition, "" + pagePositions.get(docNum));
-                    pageStartPosition = pagePositions.get(docNum++);
-                    freqMap.clear();
+                    writeToIntermediatePageTableASCII(pageTableBufferedWriter, URL, docNo, "" + docLen);
+                    totalDocLen += docLen;
+                    docNum++;
+                    positionMap.clear();
                     if (docNum % 10000 == 0) System.out.println(docNum);
                 }
             }
             sortInvertedIndex(invertedIndex, 0, wordCount,lexOrder, lenOrder, numOrder);
             generateInitialIntermediatePostingsASCII(invertedIndex, fileNum, wordCount, outputPath);
+
+            pageTableBufferedWriter.newLine();
+            pageTableBufferedWriter.write("" + totalDocLen);pageTableBufferedWriter.newLine();
+            pageTableBufferedWriter.write("" + docNum);
             pageTableBufferedWriter.close();
         } catch (Exception e) {
             e.printStackTrace();

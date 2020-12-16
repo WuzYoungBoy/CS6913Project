@@ -66,6 +66,25 @@ class VarByte {
         return vb;
     }
 
+    static byte[] VBEncodeNumberGaps(ArrayList<Integer> nums) {
+
+        ByteBuffer buffer = ByteBuffer.allocate(nums.size() * (Integer.SIZE / Byte.SIZE));
+
+        buffer.put(VBEncodeNumber(nums.get(0)));
+
+        int bufferIndex = 1;
+        while (bufferIndex < nums.size()) {
+            //System.out.println(nums[bufferIndex]);
+            buffer.put(VBEncodeNumber(nums.get(bufferIndex) - nums.get(bufferIndex - 1)));
+            bufferIndex++;
+        }
+        buffer.flip();
+        byte[] vb  = new byte[buffer.limit()];
+        buffer.get(vb);
+        return vb;
+    }
+
+
     static byte[] VBEncodeNumberGaps(int [] nums, int start, int end, int prevInt) {
         ByteBuffer buffer = ByteBuffer.allocate( (end - start) * (Integer.SIZE / Byte.SIZE));
 //        System.out.println("prevint: "+ prevInt);
@@ -89,8 +108,8 @@ class VarByte {
         int num = 0;
         int offset = 0;
         int payload;
-        for (int bufferIndex = 0; bufferIndex < byteStream.length; bufferIndex++) {
-            if(((payload = byteStream[bufferIndex] & 0xff) & 0x80) != 0) {
+        for (byte b : byteStream) {
+            if (((payload = b & 0xff) & 0x80) != 0) {
                 num |= (payload & 0x7f) << offset;
                 offset += 7;
             } else {
@@ -101,6 +120,25 @@ class VarByte {
         }
         return Ints.toArray(nums);
     }
+
+    static int [] VBDecode(byte [] byteStream, int limit) {
+        List<Integer> nums = new ArrayList<>();
+        int num = 0;
+        int offset = 0;
+        int payload;
+        for (byte b : byteStream) {
+            if (((payload = b & 0xff) & 0x80) != 0) {
+                num |= (payload & 0x7f) << offset;
+                offset += 7;
+            } else {
+                nums.add((num | (payload << offset)));
+                num = 0;
+                offset = 0;
+            }
+        }
+        return Ints.toArray(nums);
+    }
+
 
     static void printByteArray(byte [] buffer) {
         System.out.println("Buffer Len:" + buffer.length);
