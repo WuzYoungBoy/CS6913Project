@@ -111,7 +111,7 @@ class TrecParser {
                     int docLen = 0;
 
                     while (!(line = bufferedReader.readLine()).equals("</TEXT>")) {
-                        String [] words = StringUtils.split(line, " \"?.,:()“”;!~'|#{}[]$‘’*-+%&—–_/");
+                        String [] words = StringUtils.split(line, " \"?.,:()<>“”;!~'|#{}[]$‘’*-+%&—–_/");
 
                         for(int i = 0; i < words.length; i++) {
                             if(words[i].length() > 30) continue;

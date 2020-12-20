@@ -43,7 +43,7 @@ public class InvertedIndexConstruction {
         System.out.println("Total Merging Time: " + (end1 - begin1));
         System.out.println(intermediatePostingPath);
 
-        String intermediatePostingPath2 = "C:\\Users\\wu689\\Desktop\\Web Search Engine\\HW2merge\\IP1_1";
+        String intermediatePostingPath2 = "C:\\Users\\MyPC\\Desktop\\Web Search Engine\\HW3temp\\IP1_1";
         BinaryFormatter binaryFormatter = new BinaryFormatter();
         long begin2 = System.currentTimeMillis();
         binaryFormatter.generateInvertedIndex(intermediatePostingPath,outputPath);

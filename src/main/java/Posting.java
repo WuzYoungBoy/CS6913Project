@@ -11,15 +11,15 @@ public class Posting {
         this.positions = positions;
     }
 
-    public String getWord() {
+    String getWord() {
         return word;
     }
 
-    public String getDocNumStr() {
+    String getDocNumStr() {
         return docNumStr;
     }
 
-    public ArrayList<String> getPositions() {
+    ArrayList<String> getPositions() {
         return positions;
     }
 }

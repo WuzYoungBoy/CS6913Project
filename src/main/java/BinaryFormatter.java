@@ -2,6 +2,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 class BinaryFormatter {
 
@@ -34,15 +35,14 @@ class BinaryFormatter {
         int bufferNum = 0;
         int blockIndex = 0;
         int prevInt = 0;
-        int firstDotComma;
-
+        int positionNum = StringUtils.countMatches(line, ',');
         int positionSize = 0;
 
         ByteBuffer metadataArrayByteBuffer = ByteBuffer.allocate(blockNum * 3 * (Integer.SIZE / Byte.SIZE));
         ByteBuffer docIdFreqByteBuffer = ByteBuffer.allocate(tupleStrs.length * 2 * (Integer.SIZE / Byte.SIZE));
 
         ByteBuffer positionSizeArrayByteBuffer = ByteBuffer.allocate(blockNum * (Integer.SIZE / Byte.SIZE));
-        ByteBuffer positionByteBuffer = ByteBuffer.allocate(line.length() * (Integer.SIZE / Byte.SIZE));
+        ByteBuffer positionByteBuffer =  ByteBuffer.allocate(positionNum * (Integer.SIZE / Byte.SIZE));
 
 
         for (String tupleStr : tupleStrs) {
@@ -66,12 +66,14 @@ class BinaryFormatter {
             }
 
             byte[] encodedSingleDocPositions = VarByte.VBEncodeNumberGaps(positionBuffer);
-            positionByteBuffer.put(encodedSingleDocPositions);
             positionSize += encodedSingleDocPositions.length;
+            positionByteBuffer.put(encodedSingleDocPositions);
             positionBuffer.clear();
 
             bufferNum++;
         }
+
+
         positionSizes[blockIndex] = positionSize;
         updateBlockMetadata(bufferNum, blockIndex, lastDocIds, docIdSizes, freqSizes, docIdBuffer, docIdFreqByteBuffer,
                 VarByte.VBEncodeNumberGaps(docIdBuffer, 0, bufferNum, prevInt), VarByte.VBEncodeNumbers(freqBuffer, 0, bufferNum));
@@ -173,8 +175,12 @@ class BinaryFormatter {
             int counter = 0;
             System.out.println("Start reformatting");
             while ((line = bufferedReader.readLine()) != null) {
+
                 int firstSpace = line.indexOf(' ');
                 String word = line.substring(0, firstSpace);
+                counter++;
+                if(counter %10000 == 0) {System.out.println(word);}
+
                 int[] occurrenceAndListSize = formBlocks(line.substring(firstSpace + 1), invertedIndexBufferedOutputStream, positionIndexBufferedOutputStream, word);
 
                 end = start + occurrenceAndListSize[1];
