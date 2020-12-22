@@ -19,6 +19,11 @@
             <artifactId>guava</artifactId>
             <version>30.0-jre</version>
         </dependency>
+        <dependency>
+            <groupId>com.linkedin.urls</groupId>
+            <artifactId>url-detector</artifactId>
+            <version>0.1.17</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
