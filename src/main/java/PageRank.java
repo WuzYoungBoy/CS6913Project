@@ -19,7 +19,7 @@ public class PageRank {
             int docNum = 0;
 
             while ((line = urlBufferedReader.readLine()) != null) {
-                if(docNum >= 100000) {break;}
+//                if(docNum >= 100000) {break;}
                 if (line.equals("<TEXT>")) {
                     urls.put(urlBufferedReader.readLine(), docNum++);
                 }
@@ -75,7 +75,7 @@ public class PageRank {
 
             while ((line = bufferedReader.readLine()) != null ) {
 
-                if(docNum >= 100000) {break;}
+//                if(docNum >= 100000) {break;}
                 if (line.equals("<TEXT>")) {
                     String URL = bufferedReader.readLine();
 
